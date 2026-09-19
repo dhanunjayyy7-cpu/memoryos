@@ -46,3 +46,20 @@ export function storeSession({ idToken, refreshToken, expiresIn }: AuthResult) {
   localStorage.setItem("memoryos.refreshToken", refreshToken)
   localStorage.setItem("memoryos.tokenExpiresAt", String(Date.now() + expiresIn * 1000))
 }
+
+export async function refreshSession(refreshToken: string): Promise<string | null> {
+  if (!isCognitoConfigured) return null
+  try {
+    const data = await callCognito("InitiateAuth", {
+      AuthFlow: "REFRESH_TOKEN_AUTH",
+      ClientId: CLIENT_ID,
+      AuthParameters: { REFRESH_TOKEN: refreshToken },
+    })
+    const { IdToken, ExpiresIn } = data.AuthenticationResult
+    localStorage.setItem("memoryos.idToken", IdToken)
+    localStorage.setItem("memoryos.tokenExpiresAt", String(Date.now() + ExpiresIn * 1000))
+    return IdToken
+  } catch {
+    return null
+  }
+}

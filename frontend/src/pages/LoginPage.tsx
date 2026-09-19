@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react"
+import { useNavigate } from "react-router-dom"
 import { Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { signIn, storeSession } from "@/lib/cognito"
@@ -7,6 +8,7 @@ import authSideImage from "@/assets/auth_side_layout.png"
 type Status = { kind: "idle" } | { kind: "loading" } | { kind: "error"; message: string } | { kind: "success" }
 
 export default function LoginPage() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -20,8 +22,9 @@ export default function LoginPage() {
     setStatus({ kind: "loading" })
     try {
       const result = await signIn(email, password)
-      if (rememberMe) storeSession(result)
+      storeSession(result)
       setStatus({ kind: "success" })
+      setTimeout(() => navigate("/dashboard"), 500)
     } catch (err) {
       setStatus({ kind: "error", message: err instanceof Error ? err.message : "Something went wrong." })
     }
