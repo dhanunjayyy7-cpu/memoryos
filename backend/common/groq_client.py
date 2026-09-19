@@ -1,9 +1,11 @@
 import json
 import os
 
-import boto3
+import requests
 
-_bedrock = boto3.client("bedrock-runtime")
+from . import secrets
+
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 CLASSIFY_PROMPT = """You are the classification engine for MemoryOS.
 Given a captured piece of content, decide:
@@ -20,32 +22,36 @@ Content:
 ---
 """
 
+_VALID_TYPES = {"knowledge", "idea", "decision", "work_context", "unresolved"}
+
+
+def chat(messages: list[dict], max_tokens: int = 400) -> str:
+    resp = requests.post(
+        GROQ_URL,
+        headers={
+            "Authorization": f"Bearer {secrets.get_groq_api_key()}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": os.environ["GROQ_MODEL_ID"],
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "response_format": {"type": "json_object"},
+        },
+        timeout=20,
+    )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
+
 
 def classify_content(content: str) -> dict:
-    body = {
-        "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": 300,
-        "messages": [
-            {"role": "user", "content": CLASSIFY_PROMPT.format(content=content[:8000])}
-        ],
-    }
-    resp = _bedrock.invoke_model(
-        modelId=os.environ["BEDROCK_MODEL_ID"],
-        body=json.dumps(body),
-    )
-    payload = json.loads(resp["body"].read())
-    text = payload["content"][0]["text"]
+    text = chat([{"role": "user", "content": CLASSIFY_PROMPT.format(content=content[:8000])}])
     return _parse_classification(text, content)
 
 
 def _parse_classification(text: str, original_content: str) -> dict:
-    cleaned = text.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`")
-        cleaned = cleaned[cleaned.find("{"):]
-
     try:
-        parsed = json.loads(cleaned)
+        parsed = json.loads(text)
         return {
             "type": parsed.get("type") if parsed.get("type") in _VALID_TYPES else "knowledge",
             "title": parsed.get("title") or original_content[:60],
@@ -59,15 +65,3 @@ def _parse_classification(text: str, original_content: str) -> dict:
             "summary": "",
             "project_hint": "unassigned",
         }
-
-
-_VALID_TYPES = {"knowledge", "idea", "decision", "work_context", "unresolved"}
-
-
-def embed_text(text: str) -> list[float]:
-    resp = _bedrock.invoke_model(
-        modelId=os.environ["BEDROCK_EMBEDDING_MODEL_ID"],
-        body=json.dumps({"inputText": text[:8000]}),
-    )
-    payload = json.loads(resp["body"].read())
-    return payload["embedding"]

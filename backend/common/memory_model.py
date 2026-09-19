@@ -3,6 +3,7 @@ import time
 import uuid
 
 import boto3
+from boto3.dynamodb.conditions import Key
 
 _dynamodb = boto3.resource("dynamodb")
 _table = _dynamodb.Table(os.environ["MEMORIES_TABLE"])
@@ -40,6 +41,17 @@ def get_memory(user_id: str, memory_id: str) -> dict | None:
 
 def get_memories_by_ids(user_id: str, memory_ids: list[str]) -> list[dict]:
     return [m for m in (get_memory(user_id, mid) for mid in memory_ids) if m]
+
+
+def list_memories_for_user(user_id: str, limit: int = 200) -> list[dict]:
+    resp = _table.query(
+        KeyConditionExpression=Key("userId").eq(user_id),
+        Limit=limit,
+        ScanIndexForward=False,
+    )
+    items = resp.get("Items", [])
+    items.sort(key=lambda m: m.get("createdAt", ""), reverse=True)
+    return items
 
 
 def _now_iso() -> str:

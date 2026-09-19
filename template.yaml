@@ -3,10 +3,6 @@ Transform: AWS::Serverless-2016-10-31
 Description: MemoryOS - proactive contextual memory backbone (write lane + read lane)
 
 Parameters:
-  GitHubRepo:
-    Type: String
-    Default: owner/repo
-    Description: GitHub repo the poller watches, as owner/repo
   DefaultUserId:
     Type: String
     Default: demo-user
@@ -23,12 +19,9 @@ Globals:
         ARTIFACTS_BUCKET: !Ref ArtifactsBucket
         OPENSEARCH_ENDPOINT: !GetAtt OpenSearchDomain.DomainEndpoint
         EVENT_BUS_NAME: !Ref MemoryEventBus
-        GITHUB_TOKEN_SECRET_ARN: !Ref GitHubTokenSecret
-        BEDROCK_MODEL_ID: anthropic.claude-3-5-sonnet-20241022-v2:0
-        BEDROCK_EMBEDDING_MODEL_ID: amazon.titan-embed-text-v2:0
-        GITHUB_REPO: !Ref GitHubRepo
+        GROQ_API_KEY_SECRET_ARN: !Ref GroqApiKeySecret
+        GROQ_MODEL_ID: llama-3.3-70b-versatile
         DEFAULT_USER_ID: !Ref DefaultUserId
-        GITHUB_POLL_STATE_PARAM: /memoryos/github/last_poll
 
 Resources:
 
@@ -116,12 +109,12 @@ Resources:
             Action: 'es:ESHttp*'
             Resource: !Sub arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/memoryos-search/*
 
-  GitHubTokenSecret:
+  GroqApiKeySecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: memoryos/github-pat
-      Description: GitHub PAT used by the polling Lambda (value set later, out of band)
-      SecretString: '{"token":"PLACEHOLDER"}'
+      Name: memoryos/groq-api-key
+      Description: Groq API key used for classification and reasoning (value set later, out of band)
+      SecretString: '{"key":"PLACEHOLDER"}'
 
   # ---------- Eventing (write lane) ----------
   MemoryEventBus:
@@ -168,7 +161,6 @@ Resources:
       EventPattern:
         source:
           - orb.manual
-          - github.commit
       Targets:
         - Id: IngestQueueTarget
           Arn: !GetAtt IngestQueue.Arn
@@ -221,8 +213,8 @@ Resources:
             BucketName: !Ref ArtifactsBucket
         - Statement:
             - Effect: Allow
-              Action: bedrock:InvokeModel
-              Resource: '*'
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref GroqApiKeySecret
             - Effect: Allow
               Action: 'es:ESHttp*'
               Resource: !Sub arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/memoryos-search/*
@@ -243,8 +235,8 @@ Resources:
             TableName: !Ref MemoriesTable
         - Statement:
             - Effect: Allow
-              Action: bedrock:InvokeModel
-              Resource: '*'
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref GroqApiKeySecret
             - Effect: Allow
               Action: 'es:ESHttp*'
               Resource: !Sub arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/memoryos-search/*
@@ -256,28 +248,21 @@ Resources:
             Path: /context
             Method: POST
 
-  GitHubPollerFunction:
+  ListMemoriesFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: backend/
-      Handler: handlers.github_poller_handler.handler
+      Handler: handlers.list_memories_handler.handler
       Policies:
-        - DynamoDBCrudPolicy:
+        - DynamoDBReadPolicy:
             TableName: !Ref MemoriesTable
-        - EventBridgePutEventsPolicy:
-            EventBusName: !Ref MemoryEventBus
-        - Statement:
-            - Effect: Allow
-              Action: secretsmanager:GetSecretValue
-              Resource: !Ref GitHubTokenSecret
-            - Effect: Allow
-              Action: [ssm:GetParameter, ssm:PutParameter]
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/memoryos/github/last_poll*
       Events:
-        Poll:
-          Type: Schedule
+        ListMemories:
+          Type: HttpApi
           Properties:
-            Schedule: rate(5 minutes)
+            ApiId: !Ref HttpApi
+            Path: /memories
+            Method: GET
 
 Outputs:
   ApiBaseUrl:

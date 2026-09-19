@@ -4,12 +4,14 @@
     <meta charset="utf-8" />
     <title>MemoryOS settings</title>
     <style>
-      body { font: 14px system-ui, sans-serif; padding: 20px; max-width: 360px; }
+      body { font: 14px system-ui, sans-serif; padding: 20px; max-width: 380px; }
       label { display: block; margin-top: 12px; font-weight: 600; }
-      input { width: 100%; padding: 6px; margin-top: 4px; box-sizing: border-box; }
+      input, textarea { width: 100%; padding: 6px; margin-top: 4px; box-sizing: border-box; font: inherit; }
+      textarea { resize: vertical; min-height: 60px; }
       button { margin-top: 16px; padding: 8px 14px; }
       #status { margin-top: 10px; }
       hr { margin: 20px 0; }
+      p.hint { color: #666; font-size: 12px; margin: 4px 0 0; }
     </style>
   </head>
   <body>
@@ -28,13 +30,11 @@
 
     <hr />
 
-    <label>Email
-      <input id="email" type="email" />
+    <label>Connection code
+      <textarea id="code" placeholder="Paste the code from your MemoryOS dashboard → Settings"></textarea>
+      <p class="hint">Log in on the web dashboard, open Settings, and copy the code shown there.</p>
     </label>
-    <label>Password
-      <input id="password" type="password" />
-    </label>
-    <button id="login">Log in</button>
+    <button id="connect">Connect</button>
 
     <div id="status"></div>
     <script src="options.js"></script>

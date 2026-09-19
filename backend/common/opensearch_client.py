@@ -34,7 +34,6 @@ def ensure_index() -> None:
     client.indices.create(
         INDEX_NAME,
         body={
-            "settings": {"index": {"knn": True}},
             "mappings": {
                 "properties": {
                     "userId": {"type": "keyword"},
@@ -43,18 +42,15 @@ def ensure_index() -> None:
                     "type": {"type": "keyword"},
                     "title": {"type": "text"},
                     "summary": {"type": "text"},
+                    "content": {"type": "text"},
                     "createdAt": {"type": "date"},
-                    "embedding": {
-                        "type": "knn_vector",
-                        "dimension": 1024,
-                    },
                 }
             },
         },
     )
 
 
-def index_memory(memory: dict, embedding: list[float]) -> None:
+def index_memory(memory: dict) -> None:
     client = _client()
     ensure_index()
     client.index(
@@ -67,13 +63,13 @@ def index_memory(memory: dict, embedding: list[float]) -> None:
             "type": memory["type"],
             "title": memory["title"],
             "summary": memory.get("summary", ""),
+            "content": memory.get("content", "")[:2000],
             "createdAt": memory["createdAt"],
-            "embedding": embedding,
         },
     )
 
 
-def search_similar(user_id: str, embedding: list[float], top_k: int = 20) -> list[dict]:
+def search_similar(user_id: str, query_text: str, top_k: int = 20) -> list[dict]:
     client = _client()
     ensure_index()
     resp = client.search(
@@ -85,11 +81,10 @@ def search_similar(user_id: str, embedding: list[float], top_k: int = 20) -> lis
                     "filter": [{"term": {"userId": user_id}}],
                     "must": [
                         {
-                            "knn": {
-                                "embedding": {
-                                    "vector": embedding,
-                                    "k": top_k,
-                                }
+                            "multi_match": {
+                                "query": query_text,
+                                "fields": ["title^3", "summary^2", "content"],
+                                "fuzziness": "AUTO",
                             }
                         }
                     ],

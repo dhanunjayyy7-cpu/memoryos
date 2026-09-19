@@ -2,8 +2,7 @@ const els = {
   apiBaseUrl: document.getElementById("apiBaseUrl"),
   awsRegion: document.getElementById("awsRegion"),
   clientId: document.getElementById("clientId"),
-  email: document.getElementById("email"),
-  password: document.getElementById("password"),
+  code: document.getElementById("code"),
   status: document.getElementById("status"),
 };
 
@@ -11,7 +10,7 @@ chrome.storage.local.get(["apiBaseUrl", "awsRegion", "clientId", "idToken"], (cf
   els.apiBaseUrl.value = cfg.apiBaseUrl || "";
   els.awsRegion.value = cfg.awsRegion || "";
   els.clientId.value = cfg.clientId || "";
-  if (cfg.idToken) setStatus("Logged in.");
+  if (cfg.idToken) setStatus("Connected.");
 });
 
 document.getElementById("saveConfig").addEventListener("click", () => {
@@ -25,10 +24,16 @@ document.getElementById("saveConfig").addEventListener("click", () => {
   );
 });
 
-document.getElementById("login").addEventListener("click", async () => {
+document.getElementById("connect").addEventListener("click", async () => {
   const { awsRegion, clientId } = await chrome.storage.local.get(["awsRegion", "clientId"]);
+  const code = els.code.value.trim();
+
   if (!awsRegion || !clientId) {
     setStatus("Save the region and client id first.", true);
+    return;
+  }
+  if (!code) {
+    setStatus("Paste the code from the dashboard first.", true);
     return;
   }
 
@@ -40,25 +45,25 @@ document.getElementById("login").addEventListener("click", async () => {
         "X-Amz-Target": "AWSCognitoIdentityProviderService.InitiateAuth",
       },
       body: JSON.stringify({
-        AuthFlow: "USER_PASSWORD_AUTH",
+        AuthFlow: "REFRESH_TOKEN_AUTH",
         ClientId: clientId,
-        AuthParameters: { USERNAME: els.email.value.trim(), PASSWORD: els.password.value },
+        AuthParameters: { REFRESH_TOKEN: code },
       }),
     });
 
     const data = await resp.json();
     if (!resp.ok || !data.AuthenticationResult) {
-      setStatus(data.message || "Login failed.", true);
+      setStatus(data.message || "That code didn't work — copy a fresh one from the dashboard.", true);
       return;
     }
 
-    const { IdToken, RefreshToken, ExpiresIn } = data.AuthenticationResult;
+    const { IdToken, ExpiresIn } = data.AuthenticationResult;
     await chrome.storage.local.set({
       idToken: IdToken,
-      refreshToken: RefreshToken,
+      refreshToken: code,
       tokenExpiresAt: Date.now() + ExpiresIn * 1000,
     });
-    setStatus("Logged in.");
+    setStatus("Connected.");
   } catch (err) {
     setStatus(String(err), true);
   }

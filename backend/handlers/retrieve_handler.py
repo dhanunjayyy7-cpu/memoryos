@@ -1,6 +1,6 @@
 import json
 
-from common import bedrock_client, memory_model, opensearch_client, strands_agent
+from common import groq_agent, memory_model, opensearch_client
 
 
 def handler(event, context):
@@ -11,12 +11,11 @@ def handler(event, context):
     if not current_context.strip():
         return _response(200, {"memories": []})
 
-    embedding = bedrock_client.embed_text(current_context)
-    candidates = opensearch_client.search_similar(user_id, embedding, top_k=20)
+    candidates = opensearch_client.search_similar(user_id, current_context, top_k=20)
     if not candidates:
         return _response(200, {"memories": []})
 
-    ranked = strands_agent.rank_and_explain(user_id, current_context, candidates)
+    ranked = groq_agent.rank_and_explain(user_id, current_context, candidates)
     enriched = _enrich(user_id, ranked)
 
     return _response(200, {"context": current_context, "memories": enriched})

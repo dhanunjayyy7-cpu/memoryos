@@ -3,7 +3,7 @@ import os
 
 import boto3
 
-from common import bedrock_client, memory_model, opensearch_client
+from common import groq_client, memory_model, opensearch_client
 
 _s3 = boto3.client("s3")
 
@@ -21,7 +21,7 @@ def _process(detail: dict) -> None:
     user_id = detail["userId"]
     content = detail["content"]
 
-    classification = bedrock_client.classify_content(content)
+    classification = groq_client.classify_content(content)
     memory_id = memory_model.new_memory_id()
 
     s3_key = ""
@@ -43,6 +43,4 @@ def _process(detail: dict) -> None:
         "s3Key": s3_key,
     }
     stored = memory_model.put_memory(user_id, memory)
-
-    embedding = bedrock_client.embed_text(f"{classification['title']}\n{classification['summary']}\n{content[:2000]}")
-    opensearch_client.index_memory(stored, embedding)
+    opensearch_client.index_memory(stored)
