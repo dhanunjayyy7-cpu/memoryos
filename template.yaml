@@ -1,0 +1,295 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: MemoryOS - proactive contextual memory backbone (write lane + read lane)
+
+Parameters:
+  GitHubRepo:
+    Type: String
+    Default: owner/repo
+    Description: GitHub repo the poller watches, as owner/repo
+  DefaultUserId:
+    Type: String
+    Default: demo-user
+    Description: Single-user id used for hackathon MVP (replace once Cognito login is wired into the orb)
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        MEMORIES_TABLE: !Ref MemoriesTable
+        ARTIFACTS_BUCKET: !Ref ArtifactsBucket
+        OPENSEARCH_ENDPOINT: !GetAtt OpenSearchDomain.DomainEndpoint
+        EVENT_BUS_NAME: !Ref MemoryEventBus
+        GITHUB_TOKEN_SECRET_ARN: !Ref GitHubTokenSecret
+        BEDROCK_MODEL_ID: anthropic.claude-3-5-sonnet-20241022-v2:0
+        BEDROCK_EMBEDDING_MODEL_ID: amazon.titan-embed-text-v2:0
+        GITHUB_REPO: !Ref GitHubRepo
+        DEFAULT_USER_ID: !Ref DefaultUserId
+        GITHUB_POLL_STATE_PARAM: /memoryos/github/last_poll
+
+Resources:
+
+  # ---------- Identity ----------
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: memoryos-users
+      AutoVerifiedAttributes: [email]
+      UsernameAttributes: [email]
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: memoryos-orb
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      GenerateSecret: false
+
+  # ---------- Storage ----------
+  MemoriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: memoryos-memories
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: memoryId
+          AttributeType: S
+        - AttributeName: projectId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: memoryId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: ProjectIndex
+          KeySchema:
+            - AttributeName: projectId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub memoryos-artifacts-${AWS::AccountId}-${AWS::Region}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  OpenSearchDomain:
+    Type: AWS::OpenSearchService::Domain
+    Properties:
+      DomainName: memoryos-search
+      EngineVersion: OpenSearch_2.15
+      ClusterConfig:
+        InstanceType: t3.small.search
+        InstanceCount: 1
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: 10
+      NodeToNodeEncryptionOptions:
+        Enabled: true
+      EncryptionAtRestOptions:
+        Enabled: true
+      DomainEndpointOptions:
+        EnforceHTTPS: true
+      AccessPolicies:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: 'es:ESHttp*'
+            Resource: !Sub arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/memoryos-search/*
+
+  GitHubTokenSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: memoryos/github-pat
+      Description: GitHub PAT used by the polling Lambda (value set later, out of band)
+      SecretString: '{"token":"PLACEHOLDER"}'
+
+  # ---------- Eventing (write lane) ----------
+  MemoryEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: memoryos-events
+
+  IngestDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: memoryos-ingest-dlq
+      MessageRetentionPeriod: 1209600
+
+  IngestQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: memoryos-ingest-queue
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt IngestDLQ.Arn
+        maxReceiveCount: 3
+
+  IngestQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [!Ref IngestQueue]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt IngestQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt MemoryEventRule.Arn
+
+  MemoryEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: memoryos-route-to-ingest
+      EventBusName: !Ref MemoryEventBus
+      EventPattern:
+        source:
+          - orb.manual
+          - github.commit
+      Targets:
+        - Id: IngestQueueTarget
+          Arn: !GetAtt IngestQueue.Arn
+
+  # ---------- API ----------
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: ['*']
+        AllowMethods: [GET, POST, OPTIONS]
+        AllowHeaders: [content-type, authorization]
+      Auth:
+        Authorizers:
+          CognitoAuthorizer:
+            JwtConfiguration:
+              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+              audience:
+                - !Ref UserPoolClient
+            IdentitySource: $request.header.Authorization
+        DefaultAuthorizer: CognitoAuthorizer
+
+  # ---------- Functions ----------
+  IngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: handlers.ingest_handler.handler
+      Policies:
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref MemoryEventBus
+      Events:
+        SaveMemory:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /memories
+            Method: POST
+
+  ClassifyStoreFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: handlers.classify_store_handler.handler
+      Timeout: 60
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MemoriesTable
+        - S3CrudPolicy:
+            BucketName: !Ref ArtifactsBucket
+        - Statement:
+            - Effect: Allow
+              Action: bedrock:InvokeModel
+              Resource: '*'
+            - Effect: Allow
+              Action: 'es:ESHttp*'
+              Resource: !Sub arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/memoryos-search/*
+      Events:
+        IngestQueueTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt IngestQueue.Arn
+            BatchSize: 5
+
+  RetrieveFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: handlers.retrieve_handler.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MemoriesTable
+        - Statement:
+            - Effect: Allow
+              Action: bedrock:InvokeModel
+              Resource: '*'
+            - Effect: Allow
+              Action: 'es:ESHttp*'
+              Resource: !Sub arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/memoryos-search/*
+      Events:
+        GetContext:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /context
+            Method: POST
+
+  GitHubPollerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: handlers.github_poller_handler.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MemoriesTable
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref MemoryEventBus
+        - Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref GitHubTokenSecret
+            - Effect: Allow
+              Action: [ssm:GetParameter, ssm:PutParameter]
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/memoryos/github/last_poll*
+      Events:
+        Poll:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+
+Outputs:
+  ApiBaseUrl:
+    Description: Base URL for the orb extension to call
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+  MemoriesTableName:
+    Value: !Ref MemoriesTable
+  ArtifactsBucketName:
+    Value: !Ref ArtifactsBucket
+  OpenSearchEndpoint:
+    Value: !GetAtt OpenSearchDomain.DomainEndpoint

@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>MemoryOS settings</title>
+    <style>
+      body { font: 14px system-ui, sans-serif; padding: 20px; max-width: 360px; }
+      label { display: block; margin-top: 12px; font-weight: 600; }
+      input { width: 100%; padding: 6px; margin-top: 4px; box-sizing: border-box; }
+      button { margin-top: 16px; padding: 8px 14px; }
+      #status { margin-top: 10px; }
+      hr { margin: 20px 0; }
+    </style>
+  </head>
+  <body>
+    <h2>MemoryOS</h2>
+
+    <label>API base URL (from the SAM stack outputs)
+      <input id="apiBaseUrl" placeholder="https://xxxx.execute-api.region.amazonaws.com" />
+    </label>
+    <label>AWS region
+      <input id="awsRegion" placeholder="ap-south-1" />
+    </label>
+    <label>Cognito app client id (stack output UserPoolClientId)
+      <input id="clientId" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxx" />
+    </label>
+    <button id="saveConfig">Save config</button>
+
+    <hr />
+
+    <label>Email
+      <input id="email" type="email" />
+    </label>
+    <label>Password
+      <input id="password" type="password" />
+    </label>
+    <button id="login">Log in</button>
+
+    <div id="status"></div>
+    <script src="options.js"></script>
+  </body>
+</html>

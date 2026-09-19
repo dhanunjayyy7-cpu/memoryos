@@ -1,0 +1,123 @@
+#memoryos-orb {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #8b5cf6, #4c1d95);
+  box-shadow: 0 4px 14px rgba(76, 29, 149, 0.5);
+  z-index: 2147483647;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease;
+}
+
+#memoryos-orb:hover {
+  transform: scale(1.08);
+}
+
+#memoryos-orb.memoryos-pulse {
+  animation: memoryos-pulse 1.4s ease-in-out infinite;
+}
+
+#memoryos-orb .memoryos-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: #f97316;
+  color: white;
+  font: 600 11px/18px system-ui, sans-serif;
+  text-align: center;
+  padding: 0 4px;
+  display: none;
+}
+
+#memoryos-orb.memoryos-has-notification .memoryos-badge {
+  display: block;
+}
+
+@keyframes memoryos-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.55); }
+  50% { box-shadow: 0 0 0 10px rgba(139, 92, 246, 0); }
+}
+
+.memoryos-menu {
+  position: fixed;
+  z-index: 2147483647;
+  background: #1f1533;
+  color: #f5f3ff;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  padding: 6px;
+  min-width: 180px;
+  font: 13px/1.4 system-ui, sans-serif;
+}
+
+.memoryos-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.memoryos-menu button:hover {
+  background: rgba(139, 92, 246, 0.35);
+}
+
+.memoryos-panel {
+  position: fixed;
+  bottom: 90px;
+  right: 24px;
+  width: 320px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: #1f1533;
+  color: #f5f3ff;
+  border-radius: 14px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.4);
+  z-index: 2147483647;
+  padding: 14px;
+  font: 13px/1.45 system-ui, sans-serif;
+}
+
+.memoryos-panel h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.memoryos-memory-card {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+
+.memoryos-memory-card .memoryos-score {
+  color: #a78bfa;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.memoryos-toast {
+  position: fixed;
+  bottom: 90px;
+  right: 24px;
+  background: #1f1533;
+  color: #f5f3ff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  z-index: 2147483647;
+  font: 13px system-ui, sans-serif;
+}
