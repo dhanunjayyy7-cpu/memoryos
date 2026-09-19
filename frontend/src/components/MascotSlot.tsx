@@ -5,17 +5,21 @@ interface MascotSlotProps {
   slot: string
   src?: string
   alt?: string
+  fit?: "cover" | "contain"
+  /** Scale factor to crop out a baked-in canvas margin (e.g. 1.12 = zoom 12%). Leave at 1 for true cutouts. */
+  zoom?: number
   className?: string
 }
 
-export function MascotSlot({ slot, src, alt = "", className }: MascotSlotProps) {
+export function MascotSlot({ slot, src, alt = "", fit = "cover", zoom = 1, className }: MascotSlotProps) {
   if (src) {
     return (
       <img
         src={src}
         alt={alt}
         data-slot={slot}
-        className={cn("h-full w-full object-cover", className)}
+        className={cn("h-full w-full", fit === "cover" ? "object-cover" : "object-contain", className)}
+        style={zoom !== 1 ? { transform: `scale(${zoom})` } : undefined}
       />
     )
   }

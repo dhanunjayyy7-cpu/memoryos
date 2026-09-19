@@ -2,6 +2,9 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { MascotSlot } from "@/components/MascotSlot"
 import { Nav } from "@/components/Nav"
+import curiousMemoryMascot from "@/assets/Curious_Memory_Mascot.png"
+import heroFloatingMascot from "@/assets/Hero_Floating_Mascot.png"
+import playfulMemoryOrbMascot from "@/assets/Playful_Memory_Orb_Mascot.png"
 
 const EASE = [0.16, 1, 0.3, 1] as const
 
@@ -39,39 +42,44 @@ export function Hero() {
           </svg>
         </motion.div>
 
-        {/* left-middle mascot */}
+        {/* lower-left mascot — Curious Memory Mascot, true cutout, light card */}
         <motion.div
           initial="hidden"
           animate="show"
           custom={0.3}
           variants={fadeUp}
-          className="absolute left-[2%] top-[46%] hidden size-[clamp(150px,17vw,200px)] rounded-3xl bg-gradient-to-br from-neutral-800 to-black shadow-2xl md:block"
+          className="absolute left-[2%] top-[46%] hidden size-[clamp(150px,17vw,200px)] overflow-hidden rounded-3xl bg-white p-3 shadow-2xl ring-1 ring-black/5 md:block"
         >
-          <MascotSlot slot="HERO_MASCOT_1" className="rounded-3xl" />
+          <MascotSlot slot="HERO_MASCOT_1" src={curiousMemoryMascot} fit="contain" alt="MemoryOS mascot thinking" />
         </motion.div>
 
-        {/* top-right mascot */}
+        {/* top-right mascot — Hero Floating Mascot, framed on its own card */}
         <motion.div
           initial="hidden"
           animate="show"
           custom={0.45}
           variants={fadeUp}
-          className="absolute right-[4%] top-[12%] hidden size-[clamp(120px,13vw,155px)] rounded-3xl shadow-2xl shadow-violet-900/40 md:block"
+          className="absolute right-[4%] top-[12%] hidden size-[clamp(120px,13vw,155px)] overflow-hidden rounded-3xl p-3 shadow-2xl shadow-violet-900/40 md:block"
           style={{ background: "radial-gradient(circle at 35% 30%, #9d7bff, #4c1d95)" }}
         >
-          <MascotSlot slot="HERO_MASCOT_2" className="rounded-3xl" />
+          <MascotSlot slot="HERO_MASCOT_2" src={heroFloatingMascot} fit="contain" alt="MemoryOS mascot observing" />
         </motion.div>
 
-        {/* bottom-right mascot */}
+        {/* lower-right mascot — Playful Memory Orb Mascot, card baked into the art */}
         <motion.div
           initial="hidden"
           animate="show"
           custom={0.6}
           variants={fadeUp}
-          className="absolute right-[1%] top-[44%] hidden size-[clamp(190px,21vw,250px)] rounded-3xl shadow-2xl md:block"
-          style={{ background: "radial-gradient(circle at 32% 28%, #e4f77a, #cdea4a)" }}
+          className="absolute right-[1%] top-[44%] hidden size-[clamp(190px,21vw,250px)] overflow-hidden rounded-3xl shadow-2xl md:block"
         >
-          <MascotSlot slot="HERO_MASCOT_3" className="rounded-3xl" />
+          <MascotSlot
+            slot="HERO_MASCOT_3"
+            src={playfulMemoryOrbMascot}
+            fit="cover"
+            zoom={1.26}
+            alt="MemoryOS mascot discovering a memory"
+          />
         </motion.div>
 
         {/* content */}

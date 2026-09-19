@@ -1,11 +1,17 @@
 import { motion } from "framer-motion"
 import { MascotSlot } from "@/components/MascotSlot"
+import learnResearchMascot from "@/assets/Learn_Research_Mascot.png"
+import connectContextMascot from "@/assets/Connect_Context_Mascot.png"
+import retrieveMemoryDiscoveryMascot from "@/assets/Retrieve_Memory_Discovery_Mascot.png"
 
 interface FeatureCardData {
   slot: string
   title: string
   description: string
-  gradient: string
+  image: string
+  alt: string
+  /** Crops out each asset's own baked-in canvas margin (measured per image, they vary). */
+  zoom: number
 }
 
 const CARDS: FeatureCardData[] = [
@@ -13,19 +19,25 @@ const CARDS: FeatureCardData[] = [
     slot: "FEATURE_LEARN",
     title: "Learn",
     description: "Capture the things you research, discover and learn while you work.",
-    gradient: "linear-gradient(155deg, #ff8a5c, #ff5a3c)",
+    image: learnResearchMascot,
+    alt: "MemoryOS mascot researching at a desk",
+    zoom: 1.13,
   },
   {
     slot: "FEATURE_CONNECT",
     title: "Connect",
     description: "Connect your current work with relevant knowledge from your past.",
-    gradient: "linear-gradient(155deg, #a78bfa, #4c1d95)",
+    image: connectContextMascot,
+    alt: "MemoryOS mascot connecting sources of information",
+    zoom: 1.07,
   },
   {
     slot: "FEATURE_RETRIEVE",
     title: "Retrieve",
     description: "Surface the right memory when it becomes useful to what you're doing now.",
-    gradient: "linear-gradient(155deg, #2b2b31, #050505)",
+    image: retrieveMemoryDiscoveryMascot,
+    alt: "MemoryOS mascot surfacing a memory beside a laptop",
+    zoom: 1.09,
   },
 ]
 
@@ -62,8 +74,8 @@ export function Features() {
             transition={{ duration: 0.55, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] as const }}
             className="rounded-[28px] border border-neutral-800 bg-[#0c0c0f] p-2.5"
           >
-            <div className="aspect-[1/0.92] overflow-hidden rounded-[20px]" style={{ background: card.gradient }}>
-              <MascotSlot slot={card.slot} />
+            <div className="aspect-[1/0.92] overflow-hidden rounded-[20px]">
+              <MascotSlot slot={card.slot} src={card.image} fit="cover" zoom={card.zoom} alt={card.alt} />
             </div>
             <div className="flex items-end justify-between gap-3 px-1.5 pb-1 pt-5">
               <div>

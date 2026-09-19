@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { MascotSlot } from "@/components/MascotSlot"
+import footerMemoryOrbMascot from "@/assets/Footer_Memory_Orb_Mascot.png"
 
 const SOCIALS = [
   {
@@ -91,15 +92,13 @@ export function Footer() {
         </div>
 
         <div className="-mt-8 flex justify-center md:col-span-3">
-          <div className="relative size-[clamp(140px,14vw,190px)] rounded-full shadow-[0_0_70px_10px_rgba(124,92,255,0.35)]">
-            <div
-              className="size-full rounded-full"
-              style={{
-                background:
-                  "radial-gradient(circle at 38% 32%, rgba(150,130,255,0.55), rgba(76,29,149,0.15) 60%, transparent 75%)",
-              }}
+          <div className="size-[clamp(150px,15vw,200px)] drop-shadow-[0_0_45px_rgba(124,92,255,0.45)]">
+            <MascotSlot
+              slot="FOOTER_MASCOT"
+              src={footerMemoryOrbMascot}
+              fit="contain"
+              alt="MemoryOS mascot resting inside a glowing memory orb"
             />
-            <MascotSlot slot="FOOTER_MASCOT" className="absolute inset-0 rounded-full" />
           </div>
         </div>
       </div>
